@@ -1,285 +1,225 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, session, send_from_directory
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, send_from_directory
 import os
 import json
-from datetime import datetime
+import time
 
 app = Flask(__name__)
 app.secret_key = "supersecretkey"
 
-# Speicherorte
-UPLOAD_FOLDER = "static/uploads"
-ORDER_FILE = "orders.json"
-USER_FILE = "users.json"
-CHAT_FOLDER = "chats"
+# JSON-Dateien
+USERS_FILE = "users.json"
+ORDERS_FILE = "orders.json"
+BUG_REPORTS_FILE = "bug_reports.json"
+CHATS_DIR = "chats"
 
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
-os.makedirs(CHAT_FOLDER, exist_ok=True)
+# Verzeichnisse anlegen, falls nicht vorhanden
+os.makedirs(CHATS_DIR, exist_ok=True)
+os.makedirs("static/uploads", exist_ok=True)
 
-# ---------------- Hilfsfunktionen ----------------
 
-def load_orders():
-    if not os.path.exists(ORDER_FILE):
-        return {}
-    with open(ORDER_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+# Hilfsfunktionen ------------------------------------------------------
 
-def save_orders(data):
-    with open(ORDER_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+def load_json(filename):
+    if os.path.exists(filename):
+        with open(filename, "r", encoding="utf-8") as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {}
+    return {}
 
-def load_users():
-    if not os.path.exists(USER_FILE):
-        return {}
-    with open(USER_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
 
-def save_users(data):
-    with open(USER_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=2)
+def save_json(filename, data):
+    with open(filename, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
 
-def norm_name_from_form(form):
-    uname = form.get("username") or form.get("ingame_name") or form.get("ingame")
-    if uname:
-        return uname.strip()
-    return None
 
-# ---------------- Startseite ----------------
-
+# Startseite -----------------------------------------------------------
 @app.route("/")
-def home():
+def index():
     return render_template("index.html")
 
-# ---------------- Registrierung ----------------
 
+# Preise-Seite ---------------------------------------------------------
+@app.route("/preise")
+def preise():
+    return render_template("preise.html")
+
+
+# Registrierung --------------------------------------------------------
 @app.route("/register", methods=["GET", "POST"])
 def register():
+    users = load_json(USERS_FILE)
     if request.method == "POST":
-        email = request.form.get("email") or ""
-        username = norm_name_from_form(request.form)
-        password = request.form.get("password") or ""
+        username = request.form["username"]
+        password = request.form["password"]
 
-        if not username or not password or not email:
-            flash("Bitte E-Mail, Benutzernamen und Passwort ausfüllen.")
-            return redirect(url_for("register"))
-
-        users = load_users()
         if username in users:
-            flash("Benutzername existiert bereits!")
-            return redirect(url_for("register"))
-
-        users[username] = {"email": email, "password": password}
-        save_users(users)
-        flash("Registrierung erfolgreich! Du kannst dich jetzt anmelden.")
+            return "Benutzername bereits vergeben."
+        users[username] = {"password": password, "is_admin": False}
+        save_json(USERS_FILE, users)
         return redirect(url_for("login"))
 
     return render_template("register.html")
 
-# ---------------- Login ----------------
 
+# Login ---------------------------------------------------------------
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    users = load_json(USERS_FILE)
     if request.method == "POST":
-        username = norm_name_from_form(request.form)
-        password = request.form.get("password") or ""
+        username = request.form["username"]
+        password = request.form["password"]
 
-        if not username or not password:
-            flash("Bitte Benutzernamen und Passwort eingeben.")
-            return redirect(url_for("login"))
-
-        users = load_users()
-        user = users.get(username)
-        if user and user.get("password") == password:
-            session["user"] = username
-            flash("Erfolgreich eingeloggt!")
-            return redirect(url_for("home"))
-        else:
-            flash("Nutzername oder Passwort ist falsch.")
-            return redirect(url_for("login"))
+        if username in users and users[username]["password"] == password:
+            session["username"] = username
+            session["is_admin"] = users[username].get("is_admin", False)
+            if session["is_admin"]:
+                return redirect(url_for("admin_menu"))
+            return redirect(url_for("index"))
+        return "Falscher Benutzername oder Passwort."
 
     return render_template("login.html")
 
-# ---------------- Logout ----------------
 
+# Logout ---------------------------------------------------------------
 @app.route("/logout")
 def logout():
-    session.pop("user", None)
-    flash("Du wurdest ausgeloggt.")
-    return redirect(url_for("home"))
+    session.clear()
+    return redirect(url_for("index"))
 
-# ---------------- Karte bestellen ----------------
 
+# Bestellung -----------------------------------------------------------
 @app.route("/bestellen", methods=["GET", "POST"])
 def bestellen():
-    if "user" not in session:
-        flash("Bitte melde dich an, um eine Karte zu bestellen.")
+    if "username" not in session:
         return redirect(url_for("login"))
 
     if request.method == "POST":
-        breite = request.form.get("breite")
-        hoehe = request.form.get("hoehe")
-        bild = request.files.get("bild")
-        user = session["user"]
+        orders = load_json(ORDERS_FILE)
+        username = session["username"]
+        titel = request.form["titel"]
+        beschreibung = request.form["beschreibung"]
+        bild = request.files["bild"]
 
-        if not (breite and hoehe and bild):
-            flash("Bitte fülle alle Felder aus!")
-            return redirect(url_for("bestellen"))
+        if bild:
+            filename = f"{username}_{int(time.time())}_{bild.filename}"
+            filepath = os.path.join("static/uploads", filename)
+            bild.save(filepath)
+        else:
+            filename = None
 
-        try:
-            breite_i = int(breite)
-            hoehe_i = int(hoehe)
-        except ValueError:
-            flash("Breite und Höhe müssen ganze Zahlen sein.")
-            return redirect(url_for("bestellen"))
-
-        safe_filename = f"{user}_{int(datetime.now().timestamp())}_{os.path.basename(bild.filename)}"
-        bildpfad = os.path.join(UPLOAD_FOLDER, safe_filename)
-        bild.save(bildpfad)
-
-        orders = load_orders()
-        if user not in orders:
-            orders[user] = []
-
-        nummer = len(orders[user]) + 1
-        preis = breite_i * hoehe_i * 400_000
-
-        new_order = {
-            "nummer": nummer,
-            "breite": breite_i,
-            "hoehe": hoehe_i,
-            "preis": preis,
-            "bild": safe_filename,
-            "timestamp": datetime.now().isoformat()
+        auftrag_id = f"{username}_Karte_{len(orders) + 1}"
+        orders[auftrag_id] = {
+            "user": username,
+            "titel": titel,
+            "beschreibung": beschreibung,
+            "bild": filename,
+            "status": "Offen"
         }
 
-        orders[user].append(new_order)
-        save_orders(orders)
+        save_json(ORDERS_FILE, orders)
 
-        chat_path = os.path.join(CHAT_FOLDER, f"{user}_Karte_{nummer}.json")
-        with open(chat_path, "w", encoding="utf-8") as f:
-            json.dump([], f, ensure_ascii=False, indent=2)
+        chat_file = os.path.join(CHATS_DIR, f"{auftrag_id}.json")
+        save_json(chat_file, [])
 
-        flash("Karte erfolgreich bestellt! 📦")
         return redirect(url_for("meine_auftraege"))
 
     return render_template("bestellen.html")
 
-# ---------------- Meine Aufträge ----------------
 
+# Eigene Aufträge ------------------------------------------------------
 @app.route("/meine_auftraege")
 def meine_auftraege():
-    if "user" not in session:
-        flash("Bitte anmelden, um Deine Aufträge zu sehen!")
+    if "username" not in session:
         return redirect(url_for("login"))
 
-    user = session["user"]
-    orders = load_orders().get(user, [])
-    return render_template("meine_auftraege.html", orders=orders, ingame_name=user)
+    orders = load_json(ORDERS_FILE)
+    eigene_auftraege = {
+        k: v for k, v in orders.items() if v["user"] == session["username"]
+    }
 
-@app.route("/meine_auftraege/delete/<int:nummer>", methods=["POST"])
-def user_delete_order(nummer):
-    if "user" not in session:
-        flash("Bitte anmelden, um Aufträge zu löschen!")
+    return render_template("meine_auftraege.html", auftraege=eigene_auftraege)
+
+
+# Karte-Detail + Chat --------------------------------------------------
+@app.route("/karte/<auftrag_id>")
+def karte_detail(auftrag_id):
+    if "username" not in session:
         return redirect(url_for("login"))
 
-    user = session["user"]
-    orders = load_orders()
+    orders = load_json(ORDERS_FILE)
+    if auftrag_id not in orders:
+        return "Auftrag nicht gefunden."
 
-    if user in orders:
-        orders[user] = [o for o in orders[user] if o["nummer"] != nummer]
-        if not orders[user]:
-            orders.pop(user, None)
-        save_orders(orders)
+    auftrag = orders[auftrag_id]
+    username = session["username"]
 
-    chat_path = os.path.join(CHAT_FOLDER, f"{user}_Karte_{nummer}.json")
-    if os.path.exists(chat_path):
-        os.remove(chat_path)
+    # Admin darf alles sehen
+    if auftrag["user"] != username and username != "Pandapalette":
+        return "Zugriff verweigert."
 
-    flash(f"Auftrag Karte_{nummer} gelöscht!")
-    return redirect(url_for("meine_auftraege"))
+    chat_file = os.path.join(CHATS_DIR, f"{auftrag_id}.json")
+    if not os.path.exists(chat_file):
+        save_json(chat_file, [])
 
-# ---------------- Admin-Bereich ----------------
+    with open(chat_file, "r", encoding="utf-8") as f:
+        chat = json.load(f)
 
-@app.route("/admin", methods=["GET", "POST"])
-def admin():
+    return render_template("karte_detail.html", auftrag=auftrag, chat=chat, auftrag_id=auftrag_id)
+
+
+# Nachricht im Chat senden ---------------------------------------------
+@app.route("/chat/<auftrag_id>", methods=["POST"])
+def chat_send(auftrag_id):
+    if "username" not in session:
+        return "Nicht eingeloggt", 403
+
+    msg = request.form["message"]
+    chat_file = os.path.join(CHATS_DIR, f"{auftrag_id}.json")
+
+    chat = load_json(chat_file)
+    chat.append({
+        "user": session["username"],
+        "message": msg,
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+    })
+    save_json(chat_file, chat)
+    return redirect(url_for("karte_detail", auftrag_id=auftrag_id))
+
+
+# Fehler melden --------------------------------------------------------
+@app.route("/bug_report", methods=["GET", "POST"])
+def bug_report():
     if request.method == "POST":
-        pw = request.form.get("admin_pass")
-        if pw == "015569026859":
-            orders = load_orders()
-            return render_template("admin.html", orders=orders)
-        else:
-            flash("Falsches Admin-Passwort!")
-            return redirect(url_for("admin"))
-    return render_template("admin_login.html")
+        bug_reports = load_json(BUG_REPORTS_FILE)
+        bug_id = str(int(time.time()))
+        bug_reports[bug_id] = {
+            "user": session.get("username", "Unbekannt"),
+            "beschreibung": request.form["beschreibung"],
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        }
+        save_json(BUG_REPORTS_FILE, bug_reports)
+        return redirect(url_for("index"))
+    return render_template("bug_report.html")
 
-@app.route("/admin/delete/<ingame_name>/<int:nummer>", methods=["POST"])
-def admin_delete(ingame_name, nummer):
-    pw = request.form.get("admin_pass")
-    if pw != "015569026859":
-        flash("Falsches Passwort!")
-        return redirect(url_for("admin"))
 
-    orders = load_orders()
-    if ingame_name in orders:
-        orders[ingame_name] = [o for o in orders[ingame_name] if o["nummer"] != nummer]
-        if not orders[ingame_name]:
-            orders.pop(ingame_name, None)
-        save_orders(orders)
+# Admin Menü -----------------------------------------------------------
+@app.route("/admin")
+def admin_menu():
+    if "username" not in session or session["username"] != "Pandapalette":
+        return redirect(url_for("login"))
 
-    chat_path = os.path.join(CHAT_FOLDER, f"{ingame_name}_Karte_{nummer}.json")
-    if os.path.exists(chat_path):
-        os.remove(chat_path)
+    orders = load_json(ORDERS_FILE)
+    return render_template("admin.html", auftraege=orders)
 
-    flash(f"Auftrag von {ingame_name} (Karte {nummer}) gelöscht!")
-    return redirect(url_for("admin"))
 
-# ---------------- Chat & Kartenanzeige ----------------
-
-def load_chat(ingame_name, nummer):
-    path = os.path.join(CHAT_FOLDER, f"{ingame_name}_Karte_{nummer}.json")
-    if not os.path.exists(path):
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump([], f)
-    with open(path, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_chat(ingame_name, nummer, messages):
-    path = os.path.join(CHAT_FOLDER, f"{ingame_name}_Karte_{nummer}.json")
-    with open(path, "w", encoding="utf-8") as f:
-        json.dump(messages, f, ensure_ascii=False, indent=2)
-
-@app.route("/<ingame_name>/Karte_<int:nummer>", methods=["GET", "POST"])
-def karte_detail(ingame_name, nummer):
-    # Admin hat immer Zugriff
-    is_admin = "user" in session and session["user"] == "Pandapalette"
-
-    # Normale User nur eigene Karte
-    if "user" not in session or (not is_admin and session["user"] != ingame_name):
-        return "Zugriff verweigert. Nur der Ersteller oder Admin kann diese Seite sehen.", 403
-
-    orders = load_orders()
-    user_orders = orders.get(ingame_name, [])
-    order = next((o for o in user_orders if o["nummer"] == nummer), None)
-    if not order:
-        return "Bestellung nicht gefunden", 404
-
-    if request.method == "POST":
-        text = request.form.get("text")
-        if text:
-            messages = load_chat(ingame_name, nummer)
-            messages.append({"user": session["user"], "text": text, "time": datetime.now().isoformat()})
-            save_chat(ingame_name, nummer, messages)
-        return redirect(url_for("karte_detail", ingame_name=ingame_name, nummer=nummer))
-
-    messages = load_chat(ingame_name, nummer)
-    return render_template("karte_detail.html", ingame_name=ingame_name, order=order, messages=messages)
-
-# ---------------- Uploads ausliefern ----------------
-
-@app.route("/uploads/<path:filename>")
+# Static Uploads -------------------------------------------------------
+@app.route("/uploads/<filename>")
 def uploaded_file(filename):
-    return send_from_directory(UPLOAD_FOLDER, filename)
+    return send_from_directory("static/uploads", filename)
 
-# ---------------- App starten ----------------
 
+# Startpunkt -----------------------------------------------------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host="0.0.0.0", port=5000, debug=True)
