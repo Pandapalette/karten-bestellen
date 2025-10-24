@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Karte bestellen</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background:#f5f5f5; padding:20px; }
+    .form-container { background:white; padding:20px; border-radius:15px; max-width:600px; margin:auto; box-shadow:0 0 15px rgba(0,0,0,0.2); }
+    input, button { margin-bottom:10px; }
+    #preview { display:none; max-width:300px; border-radius:10px; margin-top:10px; }
+  </style>
+</head>
+<body>
+
+<div class="form-container">
+  <h2>Karte bestellen</h2>
+  <p>Du bist angemeldet als: <strong>{{ session['user'] }}</strong></p>
+
+  <form method="POST" enctype="multipart/form-data">
+    <label>Breite:</label>
+    <input type="number" name="breite" class="form-control" required>
+
+    <label>Höhe:</label>
+    <input type="number" name="hoehe" class="form-control" required>
+
+    <label>Bild hochladen:</label>
+    <input type="file" name="bild" class="form-control" accept="image/*" onchange="previewImage(event)" required>
+    <img id="preview" src="#" alt="Bild Vorschau">
+
+    <button type="submit" class="btn btn-primary mt-2">Karte bestellen</button>
+  </form>
+
+  {% with messages = get_flashed_messages() %}
+    {% if messages %}
+      <ul class="mt-3">
+        {% for message in messages %}
+          <li>{{ message }}</li>
+        {% endfor %}
+      </ul>
+    {% endif %}
+  {% endwith %}
+
+  <a href="{{ url_for('home') }}" class="btn btn-secondary mt-3">⬅️ Zurück</a>
+</div>
+
+<script>
+function previewImage(event) {
+    const preview = document.getElementById('preview');
+    preview.src = URL.createObjectURL(event.target.files[0]);
+    preview.style.display = 'block';
+}
+</script>
+
+</body>
+</html>
