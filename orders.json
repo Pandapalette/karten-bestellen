@@ -15,6 +15,14 @@
       "preis": 2400000,
       "bild": "Pandapalette_1761320893_A (31).png",
       "timestamp": "2025-10-24T17:48:13.541489"
+    },
+    {
+      "nummer": 3,
+      "breite": 2,
+      "hoehe": 5,
+      "preis": 4000000,
+      "bild": "Pandapalette_1761329069_A (25).png",
+      "timestamp": "2025-10-24T20:04:29.055196"
     }
   ]
 }
