@@ -249,10 +249,11 @@ def save_chat(ingame_name, nummer, messages):
 
 @app.route("/<ingame_name>/Karte_<int:nummer>", methods=["GET", "POST"])
 def karte_detail(ingame_name, nummer):
-    user = session.get("user")
+    # Admin hat immer Zugriff
+    is_admin = "user" in session and session["user"] == "Pandapalette"
 
-    # Zugriff: Besitzer oder Admin "Pandapalette"
-    if not user or (user != ingame_name and user != "Pandapalette"):
+    # Normale User nur eigene Karte
+    if "user" not in session or (not is_admin and session["user"] != ingame_name):
         return "Zugriff verweigert. Nur der Ersteller oder Admin kann diese Seite sehen.", 403
 
     orders = load_orders()
@@ -265,11 +266,7 @@ def karte_detail(ingame_name, nummer):
         text = request.form.get("text")
         if text:
             messages = load_chat(ingame_name, nummer)
-            messages.append({
-                "user": user,
-                "text": text,
-                "time": datetime.now().isoformat()
-            })
+            messages.append({"user": session["user"], "text": text, "time": datetime.now().isoformat()})
             save_chat(ingame_name, nummer, messages)
         return redirect(url_for("karte_detail", ingame_name=ingame_name, nummer=nummer))
 

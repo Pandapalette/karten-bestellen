@@ -7,12 +7,15 @@
   <style>
     body { background:#eef3ff; padding:20px; }
     .card { border-radius:15px; box-shadow:0 0 10px rgba(0,0,0,0.2); margin-bottom:20px; }
-    .card img { max-width:200px; max-height:200px; border-radius:10px; margin-top:10px; }
-    .btn-sm { margin-right:5px; }
+    .card img { max-width:150px; max-height:150px; border-radius:10px; margin-top:10px; }
+    .chat-container { max-width: 800px; margin: auto; background: #fff; border-radius:15px; padding:20px; box-shadow: 0 0 10px rgba(0,0,0,0.2); }
+    .message { padding:10px; margin-bottom:10px; border-radius:10px; }
+    .message.user { background:#d1e7dd; text-align:right; }
+    .message.admin { background:#f8d7da; text-align:left; }
+    .message small { display:block; color:#555; font-size:0.8rem; }
   </style>
 </head>
 <body>
-
 <div class="container">
   <h2 class="text-center mb-4">👷 Admin – Alle Aufträge</h2>
 
@@ -28,11 +31,11 @@
         {% endif %}
 
         <div class="mt-3">
-          <!-- Chat öffnen -->
-          <a href="/{{ user }}/Karte_{{ order.nummer }}" class="btn btn-info btn-sm">💬 Chat öffnen</a>
+          <!-- Chat öffnen: Admin kann alles sehen -->
+          <a href="{{ url_for('karte_detail', ingame_name=user, nummer=order.nummer) }}" class="btn btn-info btn-sm">💬 Chat öffnen</a>
 
           <!-- Auftrag löschen -->
-          <form style="display:inline;" action="{{ url_for('admin_delete', ingame_name=user, nummer=order.nummer) }}" method="post">
+          <form action="{{ url_for('admin_delete', ingame_name=user, nummer=order.nummer) }}" method="post" style="display:inline;">
             <input type="hidden" name="admin_pass" value="015569026859">
             <button type="submit" class="btn btn-danger btn-sm">🗑️ Löschen</button>
           </form>
@@ -43,6 +46,5 @@
 
   <a href="{{ url_for('home') }}" class="btn btn-secondary w-100 mt-3">⬅️ Zurück</a>
 </div>
-
 </body>
 </html>
