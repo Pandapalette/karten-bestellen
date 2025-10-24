@@ -16,6 +16,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(CHAT_FOLDER, exist_ok=True)
 
 # ---------------- Hilfsfunktionen ----------------
+
 def load_orders():
     if not os.path.exists(ORDER_FILE):
         return {}
@@ -43,11 +44,13 @@ def norm_name_from_form(form):
     return None
 
 # ---------------- Startseite ----------------
+
 @app.route("/")
 def home():
     return render_template("index.html")
 
 # ---------------- Registrierung ----------------
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
@@ -72,6 +75,7 @@ def register():
     return render_template("register.html")
 
 # ---------------- Login ----------------
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -95,6 +99,7 @@ def login():
     return render_template("login.html")
 
 # ---------------- Logout ----------------
+
 @app.route("/logout")
 def logout():
     session.pop("user", None)
@@ -102,6 +107,7 @@ def logout():
     return redirect(url_for("home"))
 
 # ---------------- Karte bestellen ----------------
+
 @app.route("/bestellen", methods=["GET", "POST"])
 def bestellen():
     if "user" not in session:
@@ -158,6 +164,7 @@ def bestellen():
     return render_template("bestellen.html")
 
 # ---------------- Meine Aufträge ----------------
+
 @app.route("/meine_auftraege")
 def meine_auftraege():
     if "user" not in session:
@@ -191,6 +198,7 @@ def user_delete_order(nummer):
     return redirect(url_for("meine_auftraege"))
 
 # ---------------- Admin-Bereich ----------------
+
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     if request.method == "POST":
@@ -225,6 +233,7 @@ def admin_delete(ingame_name, nummer):
     return redirect(url_for("admin"))
 
 # ---------------- Chat & Kartenanzeige ----------------
+
 def load_chat(ingame_name, nummer):
     path = os.path.join(CHAT_FOLDER, f"{ingame_name}_Karte_{nummer}.json")
     if not os.path.exists(path):
@@ -240,8 +249,11 @@ def save_chat(ingame_name, nummer, messages):
 
 @app.route("/<ingame_name>/Karte_<int:nummer>", methods=["GET", "POST"])
 def karte_detail(ingame_name, nummer):
-    if "user" not in session or session["user"] != ingame_name:
-        return "Zugriff verweigert.", 403
+    user = session.get("user")
+
+    # Zugriff: Besitzer oder Admin "Pandapalette"
+    if not user or (user != ingame_name and user != "Pandapalette"):
+        return "Zugriff verweigert. Nur der Ersteller oder Admin kann diese Seite sehen.", 403
 
     orders = load_orders()
     user_orders = orders.get(ingame_name, [])
@@ -251,64 +263,26 @@ def karte_detail(ingame_name, nummer):
 
     if request.method == "POST":
         text = request.form.get("text")
-        bild = request.files.get("bild")
-        messages = load_chat(ingame_name, nummer)
-
         if text:
-            messages.append({"user": session["user"], "text": text, "time": datetime.now().isoformat()})
-        if bild:
-            safe_filename = f"chat_{ingame_name}_{nummer}_{int(datetime.now().timestamp())}_{os.path.basename(bild.filename)}"
-            pfad = os.path.join(UPLOAD_FOLDER, safe_filename)
-            bild.save(pfad)
-            messages.append({"user": session["user"], "bild": safe_filename, "time": datetime.now().isoformat()})
-
-        save_chat(ingame_name, nummer, messages)
+            messages = load_chat(ingame_name, nummer)
+            messages.append({
+                "user": user,
+                "text": text,
+                "time": datetime.now().isoformat()
+            })
+            save_chat(ingame_name, nummer, messages)
         return redirect(url_for("karte_detail", ingame_name=ingame_name, nummer=nummer))
 
     messages = load_chat(ingame_name, nummer)
     return render_template("karte_detail.html", ingame_name=ingame_name, order=order, messages=messages)
 
-# ---------------- Bug-Report ----------------
-@app.route("/bug_report", methods=["GET", "POST"])
-def bug_report():
-    if request.method == "POST":
-        beschreibung = request.form.get("beschreibung")
-        if not beschreibung:
-            flash("Bitte beschreibe den Fehler.")
-            return redirect(url_for("bug_report"))
-
-        bug_file = "bug_reports.json"
-        if os.path.exists(bug_file):
-            with open(bug_file, "r", encoding="utf-8") as f:
-                bugs = json.load(f)
-        else:
-            bugs = []
-
-        bugs.append({
-            "user": session.get("user", "Gast"),
-            "beschreibung": beschreibung,
-            "timestamp": datetime.now().isoformat()
-        })
-
-        with open(bug_file, "w", encoding="utf-8") as f:
-            json.dump(bugs, f, ensure_ascii=False, indent=2)
-
-        flash("Fehler wurde gemeldet, danke für die Rückmeldung!")
-        return redirect(url_for("home"))
-
-    return render_template("bug_report.html")
-
 # ---------------- Uploads ausliefern ----------------
+
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
-# ---------------- Preise ----------------
-@app.route("/preise")
-def preise():
-    # Einfaches Template oder statische Preise
-    return render_template("preise.html")
-
 # ---------------- App starten ----------------
+
 if __name__ == "__main__":
     app.run(debug=True)
