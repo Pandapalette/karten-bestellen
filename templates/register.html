@@ -1,10 +1,90 @@
-{% extends "base.html" %}
-{% block content %}
-<h1 class="text-3xl font-bold text-purple-700 mb-4">Registrieren</h1>
-<form method="POST" class="space-y-3 max-w-md mx-auto bg-white p-6 rounded shadow">
-    <input name="email" type="email" placeholder="E-Mail" class="w-full border p-2 rounded" required>
-    <input name="username" placeholder="Benutzername" class="w-full border p-2 rounded" required>
-    <input name="password" type="password" placeholder="Passwort" class="w-full border p-2 rounded" required>
-    <button class="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 w-full">Registrieren</button>
-</form>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registrieren - Opsucht</title>
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    background: linear-gradient(to bottom, #e0f7fa, #f7fdff);
+    height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.register-box {
+    background-color: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    padding: 40px 60px;
+    width: 420px;
+    text-align: center;
+}
+
+h2 {
+    margin-bottom: 30px;
+    color: #2196F3;
+}
+
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    text-align: left;
+}
+
+input {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    font-size: 16px;
+}
+
+button {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 20px;
+    cursor: pointer;
+    font-size: 16px;
+}
+button:hover { opacity: 0.9; }
+
+a {
+    display: block;
+    margin-top: 20px;
+    color: #2196F3;
+    text-decoration: none;
+}
+a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="register-box">
+    <h2>Registrieren</h2>
+    <form method="POST" action="/register">
+        <label for="email">E-Mail-Adresse</label>
+        <input type="email" name="email" id="email" placeholder="z.B. dein.name@email.de" required>
+
+        <label for="username">Ingame-Name</label>
+        <input type="text" name="username" id="username" placeholder="Dein Minecraft-Name" required>
+
+        <label for="password">Passwort</label>
+        <input type="password" name="password" id="password" placeholder="Passwort" required>
+
+        <label for="confirm">Passwort wiederholen</label>
+        <input type="password" name="confirm" id="confirm" placeholder="Passwort bestätigen" required>
+
+        <button type="submit">Registrieren</button>
+    </form>
+    <a href="/login">Bereits registriert? Jetzt einloggen</a>
+</div>
+</body>
+</html>

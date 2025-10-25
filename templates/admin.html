@@ -1,28 +1,84 @@
-{% extends "base.html" %}
-{% block content %}
-<h1 class="text-3xl font-bold text-purple-700 mb-4">Admin-Dashboard</h1>
-{% if orders %}
-    {% for user, user_orders in orders.items() %}
-        <div class="bg-white shadow rounded p-4 mb-6">
-            <h2 class="text-2xl font-semibold">{{ user }}</h2>
-            <div class="mt-2 space-y-2">
-                {% for o in user_orders %}
-                    <div class="border p-2 rounded flex justify-between items-center">
-                        <div>
-                            Karte {{ o.nummer }}: {{ o.breite }}×{{ o.hoehe }} – {{ "{:,.0f}".format(o.preis) }} 💰
-                            {% if o.bild %}
-                                <br><img src="{{ url_for('uploaded_file', filename=o.bild) }}" alt="Bild" class="w-32 mt-2 rounded">
-                            {% endif %}
-                        </div>
-                        <form method="POST" action="{{ url_for('admin_delete', ingame_name=user, nummer=o.nummer) }}">
-                            <button class="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600">Löschen</button>
-                        </form>
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { padding: 20px; background-color: #f8f9fa; }
+        .table th, .table td { vertical-align: middle; }
+        .btn + .btn { margin-left: 10px; } /* Abstand zwischen Buttons */
+        .card { margin-bottom: 20px; }
+        .scroll-box { max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mb-4">Admin Dashboard</h1>
+
+        <div class="row">
+            <!-- Links: Aufträge -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <strong>Kartenaufträge</strong>
                     </div>
-                {% endfor %}
+                    <div class="card-body scroll-box">
+                        {% if auftraege %}
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Benutzer</th>
+                                    <th>Bild</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for auftrag in auftraege %}
+                                <tr>
+                                    <td>{{ auftrag['id'] }}</td>
+                                    <td>{{ auftrag['username'] }}</td>
+                                    <td><img src="{{ auftrag['image'] }}" width="80"></td>
+                                    <td>
+                                        <form method="post" action="{{ url_for('chat_delete', auftrag_id=auftrag['id']) }}" style="display:inline-block;">
+                                            <button type="submit" class="btn btn-danger btn-sm">Löschen</button>
+                                        </form>
+                                        <a href="{{ url_for('chat', auftrag_id=auftrag['id']) }}" class="btn btn-primary btn-sm">Chat</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <p>Keine Aufträge vorhanden.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rechts: Fehler Meldungen -->
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <strong>Fehlermeldungen</strong>
+                    </div>
+                    <div class="card-body scroll-box">
+                        {% if bugs %}
+                        <ul class="list-group">
+                            {% for bug in bugs %}
+                            <li class="list-group-item">
+                                <strong>{{ bug['user'] }}:</strong> {{ bug['text'] }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                        {% else %}
+                        <p>Keine Fehlermeldungen vorhanden.</p>
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
-    {% endfor %}
-{% else %}
-    <p>Keine Aufträge vorhanden.</p>
-{% endif %}
-{% endblock %}
+    </div>
+</body>
+</html>

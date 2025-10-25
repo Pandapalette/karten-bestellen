@@ -1,9 +1,201 @@
-{% extends "base.html" %}
-{% block content %}
-<h1 class="text-3xl font-bold text-purple-700 mb-4">Preisliste</h1>
-<p>Die Preise berechnen sich nach der Fläche der Karte:</p>
-<ul class="list-disc ml-6 mt-3">
-    <li>Preis = Breite × Höhe × 400.000 💸</li>
-    <li>Beispiel: 2×3 → 2×3×400.000 = 2.400.000</li>
-</ul>
-{% endblock %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preise - Opsucht Karten</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            font-family: Arial, sans-serif;
+            background-color: #e0f7fa;
+            min-height: 100vh;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 50px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .top-left, .top-right {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .user-box {
+            background-color: #2196F3;
+            border: 1px solid white;
+            border-radius: 12px;
+            padding: 10px 20px;
+            color: white;
+        }
+
+        .logout-btn {
+            padding: 8px 15px;
+            font-size: 14px;
+            background-color: #f44336;
+            border: none;
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+        }
+
+        .logout-btn:hover { opacity: 0.8; }
+
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            color: white;
+            transition: 0.3s;
+        }
+
+        .admin-btn { background-color: #FF5722; }
+
+        .button:hover { opacity: 0.8; }
+
+        main {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 30px;
+            padding: 50px 20px;
+        }
+
+        .card {
+            background-color: white;
+            border-radius: 15px;
+            width: 300px;
+            height: 250px; /* alle gleich groß */
+            padding: 25px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .card h3 {
+            text-align: center;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .card p {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        input[type="number"] {
+            width: 60px;
+            padding: 8px 10px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+            margin: 0 5px;
+        }
+
+        .result {
+            margin-top: 10px;
+            font-weight: bold;
+            color: #2196F3;
+            text-align: center;
+        }
+
+        .back-btn {
+            display: block;
+            margin: 30px auto 0 auto;
+            padding: 12px 25px;
+            font-size: 16px;
+            background-color: #888888;
+            color: white;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .back-btn:hover { opacity: 0.8; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="top-left">
+        {% if username %}
+            <div class="user-box">{{ username }}</div>
+            <button class="logout-btn" onclick="location.href='/logout'">Logout</button>
+        {% else %}
+            <button class="button login-btn" onclick="location.href='/login'">Login</button>
+            <button class="button register-btn" onclick="location.href='/register'">Register</button>
+        {% endif %}
+    </div>
+    <div class="top-right">
+        <button class="button admin-btn" onclick="adminLogin()">Admin</button>
+    </div>
+</header>
+
+<main>
+    <!-- Feld 1: Beispiel-Preis + Erklärung -->
+    <div class="card">
+        <h3>Beispielpreis</h3>
+        <p>Preis pro Teil: <strong>400.000 Coins</strong></p>
+        <p>Beispiel: 2 x 3 = 6 x 400.000 Coins = <strong>2.400.000 Coins</strong></p>
+        <p>Formel: Breite x Höhe</p>
+    </div>
+
+    <!-- Feld 2: Rechner -->
+    <div class="card">
+        <h3>Preisrechner</h3>
+        <p>
+            Breite: <input type="number" id="width" value="1" min="1">
+            x Höhe: <input type="number" id="height" value="1" min="1">
+        </p>
+        <p class="result" id="calcResult">= 400.000 Coins</p>
+    </div>
+
+    <!-- Feld 3: leer -->
+    <div class="card">
+        <h3>Weitere Optionen</h3>
+        <p>Hier wird später etwas eingefügt.</p>
+    </div>
+</main>
+
+<button class="back-btn" onclick="window.history.back()">Zurück</button>
+
+<script>
+    function adminLogin() {
+        const pass = prompt("Bitte Admin-Passwort eingeben:");
+        if(pass === "015569026859") {
+            window.location.href = "/admin";
+        } else {
+            alert("Falsches Passwort!");
+        }
+    }
+
+    // Rechner
+    const widthInput = document.getElementById("width");
+    const heightInput = document.getElementById("height");
+    const result = document.getElementById("calcResult");
+
+    function updateResult() {
+        const width = parseInt(widthInput.value) || 0;
+        const height = parseInt(heightInput.value) || 0;
+        const coinsPerTile = 400000;
+        const total = width * height * coinsPerTile;
+        result.textContent = `= ${total.toLocaleString()} Coins`;
+    }
+
+    widthInput.addEventListener("input", updateResult);
+    heightInput.addEventListener("input", updateResult);
+</script>
+
+</body>
+</html>

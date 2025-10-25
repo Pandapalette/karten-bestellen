@@ -1,12 +1,212 @@
-{% extends "base.html" %}
-{% block content %}
-<div class="text-center space-y-4">
-    <h1 class="text-4xl font-bold text-purple-700">Willkommen bei Pandapalette!</h1>
-    <p class="text-lg text-gray-700">Dein Ort für individuelle Kartenaufträge 🎨</p>
-    {% if user %}
-        <a href="{{ url_for('bestellen') }}" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">Neue Karte bestellen</a>
-    {% else %}
-        <a href="{{ url_for('login') }}" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">Jetzt anmelden</a>
-    {% endif %}
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Opsucht Karten</title>
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            font-family: Arial, sans-serif;
+            background-color: #e0f7fa; /* Babyblau */
+            position: relative;
+        }
+
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 50px;
+            background-color: #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            z-index: 1;
+            position: relative;
+        }
+
+        .top-left, .top-right {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+
+        .button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 12px;
+            cursor: pointer;
+            font-size: 16px;
+            color: white;
+            transition: 0.3s;
+        }
+
+        .login-btn { background-color: #4CAF50; }
+        .register-btn { background-color: #888888; }
+        .admin-btn { background-color: #FF5722; }
+        .logout-btn { margin-left: 10px; background-color: #f44336; padding: 8px 15px; font-size: 14px; }
+
+        .button:hover { opacity: 0.8; }
+
+        main {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 70%;
+        }
+
+        .main-buttons {
+            display: flex;
+            gap: 50px;
+        }
+
+        .main-button {
+            width: 220px;
+            height: 120px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            color: white;
+            text-decoration: none;
+            transition: 0.3s;
+        }
+
+        .bestellen { background-color: #2196F3; }
+        .meine-auftraege { background-color: #9C27B0; }
+        .preise { background-color: #FF9800; }
+
+        footer {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: absolute;
+            bottom: 20px;
+            width: 100%;
+        }
+
+        .bug-btn {
+            background-color: #F44336;
+            border-radius: 12px;
+            padding: 12px 25px;
+            color: white;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .bug-btn:hover { opacity: 0.8; }
+
+        .user-box {
+            background-color: #2196F3;
+            border: 1px solid white;
+            border-radius: 12px;
+            padding: 10px 20px;
+            color: white;
+        }
+
+        /* ================= Overlay Admin ================= */
+        .overlay {
+            display: none;
+            position: fixed;
+            top:0; left:0;
+            width:100%;
+            height:100%;
+            background: rgba(0,0,0,0.3);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal {
+            background-color: white;
+            padding: 40px 60px;
+            border-radius: 15px;
+            text-align: center;
+            width: 300px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .modal input[type="password"] {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        .modal button {
+            width: 100%;
+            border: none;
+            border-radius: 8px;
+            padding: 12px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-bottom: 10px;
+        }
+
+        .login-button { background-color: #4CAF50; color:white; }
+        .login-button:hover { opacity:0.9; }
+        .back-button { background-color: #f44336; color:white; }
+        .back-button:hover { opacity:0.9; }
+        .error { color:red; margin-bottom:15px; font-weight:bold; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="top-left">
+        {% if username %}
+            <div class="user-box">{{ username }}</div>
+            <button class="button logout-btn" onclick="location.href='/logout'">Logout</button>
+        {% else %}
+            <button class="button login-btn" onclick="location.href='/login'">Login</button>
+            <button class="button register-btn" onclick="location.href='/register'">Register</button>
+        {% endif %}
+    </div>
+    <div class="top-right">
+        <button class="button admin-btn" onclick="showAdminLogin()">Admin</button>
+    </div>
+</header>
+
+<main>
+    <div class="main-buttons">
+        <a href="/bestellen" class="main-button bestellen">Bestellen</a>
+        <a href="/meine_auftraege" class="main-button meine-auftraege">Meine Aufträge</a>
+        <a href="/preise" class="main-button preise">Preise</a>
+    </div>
+</main>
+
+<footer>
+    <button class="bug-btn" onclick="location.href='/bug_report'">Fehler melden</button>
+</footer>
+
+<!-- ================= Overlay Admin ================= -->
+<div id="adminOverlay" class="overlay">
+    <div class="modal">
+        <h2>Admin Login</h2>
+        {% if error %}
+        <div class="error">{{ error }}</div>
+        {% endif %}
+        <form method="POST" action="/admin_login">
+            <input type="password" name="password" placeholder="Passwort" required>
+            <button type="submit" class="login-button">Login</button>
+        </form>
+        <button class="back-button" onclick="hideAdminLogin()">Zurück</button>
+    </div>
 </div>
-{% endblock %}
+
+<script>
+    function showAdminLogin() {
+        document.getElementById("adminOverlay").style.display = "flex";
+    }
+    function hideAdminLogin() {
+        document.getElementById("adminOverlay").style.display = "none";
+    }
+</script>
+
+</body>
+</html>
