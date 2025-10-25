@@ -1,1 +1,23 @@
-[]
+[
+    {
+        "id": 1,
+        "username": "Pandapalette",
+        "breite": 2,
+        "hoehe": 3,
+        "image": "/static/uploads/Pandapalette_1.png"
+    },
+    {
+        "id": 2,
+        "username": "Pandapalette",
+        "breite": 3,
+        "hoehe": 45,
+        "image": "/static/uploads/Pandapalette_2.png"
+    },
+    {
+        "id": 3,
+        "username": "Pandapalette",
+        "breite": 3,
+        "hoehe": 5,
+        "image": "/static/uploads/Pandapalette_3.png"
+    }
+]
