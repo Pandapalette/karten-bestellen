@@ -90,15 +90,19 @@
             <input type="text" name="username" value="{{ username }}" readonly>
 
             <label>Breite:</label>
-            <input type="number" name="breite" min="1" required>
+            <input type="number" name="breite" min="1" value="{{ breite or '' }}" required>
 
             <label>Höhe:</label>
-            <input type="number" name="hoehe" min="1" required>
+            <input type="number" name="hoehe" min="1" value="{{ hoehe or '' }}" required>
 
             <label>Bild auswählen:</label>
-            <input type="file" name="image" accept="image/*" required>
+            <input type="file" name="image" accept="image/*">
+            {% if preview_image %}
+                <input type="hidden" name="saved_image" value="{{ preview_image }}">
+            {% endif %}
 
-            <button type="submit" name="submit" class="submit-btn">Karte Bestellen</button>
+            <button type="submit" name="action" value="preview" class="submit-btn" style="background-color:#2196F3;">Vorschau</button>
+            <button type="submit" name="action" value="submit" class="submit-btn">Karte Bestellen</button>
         </form>
     </div>
 </main>

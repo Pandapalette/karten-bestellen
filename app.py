@@ -106,52 +106,54 @@ def bestellen():
 
     message = None
     preview_image = None
+    breite = request.form.get("breite", "")
+    hoehe = request.form.get("hoehe", "")
+    saved_image = request.form.get("saved_image")
 
     if request.method == "POST":
-        try:
-            breite = int(request.form.get("breite"))
-            hoehe = int(request.form.get("hoehe"))
-        except (ValueError, TypeError):
-            message = "Bitte gültige Breite und Höhe angeben!"
-            return render_template("bestellen.html", username=username, message=message)
-
-        user_auftraege = [a for a in auftraege if a["username"] == username]
-        if len(user_auftraege) >= MAX_AUFTRAEGE:
-            message = "Zu viele Kartenaufträge!"
-            return render_template("bestellen.html", username=username, message=message)
-
         file = request.files.get("image")
-        if file:
-            filename = f"{username}_{len(auftraege)+1}.png"
+
+        # Wenn ein neues Bild hochgeladen wurde → speichern
+        if file and file.filename != "":
+            filename = f"preview_{username}.png"
             path = os.path.join(UPLOAD_FOLDER, filename)
             file.save(path)
+            preview_image = f"/{path.replace('\\','/')}"
+        elif saved_image:
+            preview_image = saved_image
 
-            try:
-                with Image.open(path) as img:
-                    if img.width > 1500 or img.height > 1500:
-                        img.thumbnail((1500, 1500))
-                        img.save(path)
-            except:
-                message = "Fehler beim Verarbeiten des Bildes!"
-                return render_template("bestellen.html", username=username, message=message)
+        action = request.form.get("action")
 
-            preview_image = f"/{path.replace(os.sep, '/')}"
+        if action == "preview":
+            return render_template("bestellen.html", username=username, message=None,
+                                   preview_image=preview_image, breite=breite, hoehe=hoehe)
 
-            # Auftrag speichern nach Absenden
-            if request.form.get("submit"):
-                auftrag_id = len(auftraege) + 1
-                auftrag = {
-                    "id": auftrag_id,
-                    "username": username,
-                    "breite": breite,
-                    "hoehe": hoehe,
-                    "image": preview_image
-                }
-                auftraege.append(auftrag)
-                chats[str(auftrag_id)] = []
-                return redirect(url_for("index"))
+        if action == "submit":
+            if not preview_image:
+                message = "Bitte ein Bild auswählen!"
+                return render_template("bestellen.html", username=username, message=message,
+                                       preview_image=None, breite=breite, hoehe=hoehe)
 
-    return render_template("bestellen.html", username=username, message=message, preview_image=preview_image)
+            auftrag_id = len(auftraege) + 1
+            auftrag = {
+                "id": auftrag_id,
+                "username": username,
+                "breite": breite,
+                "hoehe": hoehe,
+                "image": preview_image
+            }
+            auftraege.append(auftrag)
+            chats[str(auftrag_id)] = []
+
+            with open(AUFTRAEGE_FILE, "w", encoding="utf-8") as f:
+                json.dump(auftraege, f, ensure_ascii=False, indent=4)
+            with open(CHATS_FILE, "w", encoding="utf-8") as f:
+                json.dump(chats, f, ensure_ascii=False, indent=4)
+
+            return redirect(url_for("meine_auftraege"))
+
+    return render_template("bestellen.html", username=username, message=None,
+                           preview_image=None, breite=breite, hoehe=hoehe)
 
 # ======================= Meine Aufträge =======================
 @app.route("/meine_auftraege")
@@ -179,7 +181,7 @@ def chat(auftrag_id):
     if not username:
         return redirect(url_for("login"))
 
-    auftrag = next((a for a in auftraege if a["id"]==auftrag_id), None)
+    auftrag = next((a for a in auftraege if a["id"] == auftrag_id), None)
     if not auftrag:
         return "Auftrag nicht gefunden!"
     if auftrag["username"] != username and not admin:
@@ -227,6 +229,40 @@ def admin():
         return redirect(url_for("admin_login"))
     return render_template("admin.html", auftraege=auftraege, bugs=bugs)
 
+# ✅ NEU: Admin kann Aufträge löschen
+@app.route("/admin/delete_auftrag/<int:auftrag_id>", methods=["POST"])
+def delete_auftrag(auftrag_id):
+    if not session.get("admin"):
+        return "Nur Admins dürfen löschen!", 403
+
+    global auftraege
+    auftraege = [a for a in auftraege if a["id"] != auftrag_id]
+
+    chats.pop(str(auftrag_id), None)
+
+    for i, a in enumerate(auftraege, start=1):
+        a["id"] = i
+
+    with open(AUFTRAEGE_FILE, "w", encoding="utf-8") as f:
+        json.dump(auftraege, f, ensure_ascii=False, indent=4)
+    with open(CHATS_FILE, "w", encoding="utf-8") as f:
+        json.dump(chats, f, ensure_ascii=False, indent=4)
+
+    return redirect(url_for("admin"))
+
+# ✅ NEU: Admin kann Fehlermeldungen löschen
+@app.route("/admin/delete_bug/<int:bug_index>", methods=["POST"])
+def delete_bug(bug_index):
+    if not session.get("admin"):
+        return "Nur Admins dürfen löschen!", 403
+
+    if 0 <= bug_index < len(bugs):
+        bugs.pop(bug_index)
+        with open(BUGS_FILE, "w", encoding="utf-8") as f:
+            json.dump(bugs, f, ensure_ascii=False, indent=4)
+
+    return redirect(url_for("admin"))
+
 # ======================= Fehler melden =======================
 @app.route("/bug_report", methods=["GET", "POST"])
 def bug_report():
@@ -235,6 +271,8 @@ def bug_report():
         text = request.form.get("text")
         if text:
             bugs.append({"user": username, "text": text})
+            with open(BUGS_FILE, "w", encoding="utf-8") as f:
+                json.dump(bugs, f, ensure_ascii=False, indent=4)
     return render_template("bug_report.html", username=username, bugs=bugs)
 
 # =======================
