@@ -1,41 +1,84 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Chat zu Karte {{ nummer }}</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body { background:#eef3ff; padding:20px; }
-    .chat-container { background:white; border-radius:15px; box-shadow:0 0 10px rgba(0,0,0,0.2); max-width:700px; margin:auto; padding:20px; }
-    .msg { padding:10px; border-radius:10px; margin:5px 0; }
-    .user { background:#d1e7ff; align-self:flex-end; text-align:right; }
-    .admin { background:#f0f0f0; align-self:flex-start; }
-    .msg-time { font-size:0.8em; color:#777; }
-    .msg-container { display:flex; flex-direction:column; max-height:400px; overflow-y:auto; margin-bottom:10px; }
-  </style>
+    <meta charset="UTF-8">
+    <title>Chat – Karte {{ order.nummer }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #f2f4f7; padding: 20px; }
+        .chat-container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            height: 70vh;
+        }
+        .chat-header {
+            padding: 15px;
+            border-bottom: 1px solid #ddd;
+            font-weight: bold;
+            text-align: center;
+        }
+        .chat-messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 15px;
+        }
+        .message {
+            margin-bottom: 10px;
+            padding: 10px;
+            border-radius: 10px;
+        }
+        .message.user { background-color: #d1e7dd; align-self: flex-start; }
+        .message.admin { background-color: #cfe2ff; align-self: flex-end; }
+        .chat-input {
+            display: flex;
+            border-top: 1px solid #ddd;
+        }
+        .chat-input input {
+            flex: 1;
+            border: none;
+            padding: 10px;
+            border-radius: 0 0 0 15px;
+        }
+        .chat-input button {
+            border: none;
+            background-color: #0d6efd;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 0 0 15px 0;
+        }
+        .chat-input input:focus {
+            outline: none;
+        }
+    </style>
 </head>
 <body>
 
 <div class="chat-container">
-  <h3 class="text-center">💬 Chat – {{ username }} / Karte {{ nummer }}</h3>
-  <hr>
-
-  <div class="msg-container">
-    {% for eintrag in chat %}
-      <div class="msg {% if eintrag.absender == session.get('user') or eintrag.absender == 'ADMIN' and session.get('user') == None %}user{% else %}admin{% endif %}">
-        <b>{{ eintrag.absender }}:</b> {{ eintrag.text }}
-        <div class="msg-time">{{ eintrag.zeit }}</div>
-      </div>
-    {% endfor %}
-  </div>
-
-  <form method="POST">
-    <textarea name="nachricht" class="form-control" placeholder="Nachricht schreiben..." required></textarea>
-    <button type="submit" class="btn btn-primary mt-2 w-100">Senden</button>
-  </form>
-
-  <a href="{{ url_for('home') }}" class="btn btn-secondary mt-3 w-100">⬅️ Zurück</a>
+    <div class="chat-header">
+        Chat für Karte {{ order.nummer }} – {{ ingame_name }}
+    </div>
+    <div class="chat-messages" id="chatMessages">
+        {% for msg in messages %}
+            <div class="message {% if msg.user == session['user'] %}user{% else %}admin{% endif %}">
+                <b>{{ msg.user }}:</b> {{ msg.text }} <small class="text-muted">{{ msg.time.split("T")[1][:8] }}</small>
+            </div>
+        {% endfor %}
+    </div>
+    <form action="{{ url_for('karte_detail', ingame_name=ingame_name, nummer=order.nummer) }}" method="POST" class="chat-input">
+        <input type="text" name="text" placeholder="Nachricht eingeben..." required>
+        <button type="submit">Senden</button>
+    </form>
 </div>
+
+<script>
+    const chatDiv = document.getElementById('chatMessages');
+    chatDiv.scrollTop = chatDiv.scrollHeight; // Scrollt automatisch nach unten
+</script>
 
 </body>
 </html>

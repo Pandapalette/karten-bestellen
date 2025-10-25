@@ -1,56 +1,34 @@
-<!DOCTYPE html>
-<html lang="de">
-<head>
-  <meta charset="UTF-8">
-  <title>Karte {{ order.nummer }} – Chat</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>
-    body { background:#eef3ff; padding:20px; }
-    .chat-container { max-width: 800px; margin: auto; background: #fff; border-radius:15px; padding:20px; box-shadow: 0 0 10px rgba(0,0,0,0.2);}
-    .message { padding:10px; margin-bottom:10px; border-radius:10px; }
-    .message.user { background:#d1e7dd; text-align:right; }
-    .message.admin { background:#f8d7da; text-align:left; }
-    .message small { display:block; color:#555; font-size:0.8rem; }
-    .order-info { margin-bottom:20px; }
-  </style>
-</head>
-<body>
-<div class="chat-container">
+{% extends "base.html" %}
+{% block content %}
+<h1 class="text-3xl font-bold text-purple-700 mb-4">
+    Chat zu Karte {{ order.nummer }} von {{ ingame_name }}
+</h1>
+<p class="mb-4 text-gray-600">Größe: {{ order.breite }}×{{ order.hoehe }} – Preis: {{ "{:,.0f}".format(order.preis) }} 💰</p>
 
-  <h3 class="text-center">Karte {{ order.nummer }} – {{ ingame_name }}</h3>
-
-  <div class="order-info">
-    <p><b>Größe:</b> {{ order.breite }}x{{ order.hoehe }}</p>
-    <p><b>Preis:</b> {{ order.preis }} Coins</p>
-    {% if order.bild %}
-      <img src="{{ url_for('uploaded_file', filename=order.bild) }}" alt="Bild" style="max-width:200px; border-radius:10px;">
-    {% endif %}
-  </div>
-
-  <h5>Chatverlauf:</h5>
-  <div id="chat-box" style="max-height:400px; overflow-y:auto; margin-bottom:20px;">
-    {% for msg in messages %}
-      <div class="message {% if msg.user == 'Pandapalette' %}admin{% else %}user{% endif %}">
-        {{ msg.text }}
-        <small>{{ msg.user }} – {{ msg.time.split('T')[0] }} {{ msg.time.split('T')[1][:8] }}</small>
-      </div>
-    {% endfor %}
-  </div>
-
-  <form method="post">
-    <div class="mb-3">
-      <textarea name="text" class="form-control" rows="3" placeholder="Nachricht schreiben..." required></textarea>
+<div class="bg-white shadow rounded p-4 max-w-2xl mx-auto mb-6">
+    <div class="h-96 overflow-y-auto border p-3 rounded space-y-3">
+        {% for msg in messages %}
+        <div class="{% if msg.user == user %}text-right{% else %}text-left{% endif %}">
+            <div class="inline-block bg-purple-100 p-2 rounded-lg max-w-[80%]">
+                <p class="text-sm text-gray-700"><strong>{{ msg.user }}</strong></p>
+                {% if msg.text %}
+                    <p>{{ msg.text }}</p>
+                {% endif %}
+                {% if msg.image %}
+                    <img src="{{ url_for('uploaded_file', filename=msg.image) }}" class="max-w-xs rounded mt-1">
+                {% endif %}
+                <p class="text-xs text-gray-500">{{ msg.time[:16].replace("T", " ") }}</p>
+            </div>
+        </div>
+        {% endfor %}
     </div>
-    <button type="submit" class="btn btn-primary w-100">Senden 💬</button>
-  </form>
 
-  <a href="{{ url_for('home') }}" class="btn btn-secondary w-100 mt-3">⬅️ Zurück</a>
+    <form method="POST" enctype="multipart/form-data" class="mt-4 flex gap-2 items-center">
+        <input name="text" placeholder="Nachricht..." class="flex-grow border p-2 rounded">
+        <input type="file" name="bild" class="text-sm">
+        <button class="bg-purple-600 text-white px-3 py-2 rounded hover:bg-purple-700">Senden</button>
+    </form>
 </div>
 
-<script>
-  // Scroll automatisch zum Ende
-  var chatBox = document.getElementById('chat-box');
-  chatBox.scrollTop = chatBox.scrollHeight;
-</script>
-</body>
-</html>
+<a href="{{ url_for('meine_auftraege') }}" class="text-blue-500 hover:underline">← Zurück zu meinen Aufträgen</a>
+{% endblock %}
