@@ -4,7 +4,7 @@ import json
 from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = "supersecretkey"
+app.secret_key = "supersecretkey123456"  # unbedingt konstant lassen
 
 # ---------------- Pfade ----------------
 UPLOAD_FOLDER = "static/uploads"
@@ -51,10 +51,7 @@ def save_chat(ingame_name, nummer, messages):
         json.dump(messages, f, ensure_ascii=False, indent=2)
 
 def norm_name_from_form(form):
-    uname = form.get("username") or form.get("ingame_name") or form.get("ingame")
-    if uname:
-        return uname.strip()
-    return None
+    return form.get("username") or form.get("ingame_name") or None
 
 # ---------------- Startseite ----------------
 @app.route("/")
@@ -65,12 +62,11 @@ def home():
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if request.method == "POST":
-        email = request.form.get("email") or ""
+        email = request.form.get("email")
         username = norm_name_from_form(request.form)
-        password = request.form.get("password") or ""
-
-        if not username or not password or not email:
-            flash("Bitte E-Mail, Benutzernamen und Passwort ausfüllen.")
+        password = request.form.get("password")
+        if not email or not username or not password:
+            flash("Bitte alle Felder ausfüllen!")
             return redirect(url_for("register"))
 
         users = load_users()
@@ -80,7 +76,7 @@ def register():
 
         users[username] = {"email": email, "password": password}
         save_users(users)
-        flash("Registrierung erfolgreich! Du kannst dich jetzt anmelden.")
+        flash("Registrierung erfolgreich! Bitte einloggen.")
         return redirect(url_for("login"))
 
     return render_template("register.html")
@@ -90,10 +86,9 @@ def register():
 def login():
     if request.method == "POST":
         username = norm_name_from_form(request.form)
-        password = request.form.get("password") or ""
-
+        password = request.form.get("password")
         if not username or not password:
-            flash("Bitte Benutzernamen und Passwort eingeben.")
+            flash("Bitte Benutzernamen und Passwort eingeben!")
             return redirect(url_for("login"))
 
         users = load_users()
@@ -103,7 +98,7 @@ def login():
             flash("Erfolgreich eingeloggt!")
             return redirect(url_for("home"))
         else:
-            flash("Nutzername oder Passwort ist falsch.")
+            flash("Benutzername oder Passwort falsch!")
             return redirect(url_for("login"))
 
     return render_template("login.html")
@@ -120,45 +115,11 @@ def logout():
 def preise():
     return render_template("preise.html")
 
-# ---------------- Bug-Report ----------------
-@app.route("/bug_report", methods=["GET", "POST"])
-def bug_report():
-    if request.method == "POST":
-        user = session.get("user", "Gast")
-        titel = request.form.get("titel")
-        beschreibung = request.form.get("beschreibung")
-
-        if not titel or not beschreibung:
-            flash("Bitte Titel und Beschreibung ausfüllen!")
-            return redirect(url_for("bug_report"))
-
-        if not os.path.exists(BUG_FILE):
-            with open(BUG_FILE, "w", encoding="utf-8") as f:
-                json.dump([], f)
-
-        with open(BUG_FILE, "r", encoding="utf-8") as f:
-            reports = json.load(f)
-
-        reports.append({
-            "user": user,
-            "titel": titel,
-            "beschreibung": beschreibung,
-            "zeit": datetime.now().isoformat()
-        })
-
-        with open(BUG_FILE, "w", encoding="utf-8") as f:
-            json.dump(reports, f, ensure_ascii=False, indent=2)
-
-        flash("Bug-Report erfolgreich abgeschickt!")
-        return redirect(url_for("home"))
-
-    return render_template("bug_report.html")
-
 # ---------------- Karte bestellen ----------------
 @app.route("/bestellen", methods=["GET", "POST"])
 def bestellen():
     if "user" not in session:
-        flash("Bitte melde dich an, um eine Karte zu bestellen.")
+        flash("Bitte einloggen, um eine Karte zu bestellen!")
         return redirect(url_for("login"))
 
     if request.method == "POST":
@@ -167,45 +128,43 @@ def bestellen():
         bild = request.files.get("bild")
         user = session["user"]
 
-        if not (breite and hoehe and bild):
-            flash("Bitte fülle alle Felder aus!")
+        if not breite or not hoehe or not bild:
+            flash("Bitte alle Felder ausfüllen!")
             return redirect(url_for("bestellen"))
 
         try:
-            breite_i = int(breite)
-            hoehe_i = int(hoehe)
+            breite = int(breite)
+            hoehe = int(hoehe)
         except ValueError:
-            flash("Breite und Höhe müssen ganze Zahlen sein.")
+            flash("Breite und Höhe müssen ganze Zahlen sein!")
             return redirect(url_for("bestellen"))
 
-        safe_filename = f"{user}_{int(datetime.now().timestamp())}_{os.path.basename(bild.filename)}"
-        bildpfad = os.path.join(UPLOAD_FOLDER, safe_filename)
-        bild.save(bildpfad)
+        filename = f"{user}_{int(datetime.now().timestamp())}_{os.path.basename(bild.filename)}"
+        bild.save(os.path.join(UPLOAD_FOLDER, filename))
 
         orders = load_orders()
         if user not in orders:
             orders[user] = []
 
         nummer = len(orders[user]) + 1
-        preis = breite_i * hoehe_i * 400_000
+        preis = breite * hoehe * 400_000
 
         new_order = {
             "nummer": nummer,
-            "breite": breite_i,
-            "hoehe": hoehe_i,
+            "breite": breite,
+            "hoehe": hoehe,
             "preis": preis,
-            "bild": safe_filename,
+            "bild": filename,
             "timestamp": datetime.now().isoformat()
         }
 
         orders[user].append(new_order)
         save_orders(orders)
 
-        chat_path = os.path.join(CHAT_FOLDER, f"{user}_Karte_{nummer}.json")
-        with open(chat_path, "w", encoding="utf-8") as f:
-            json.dump([], f, ensure_ascii=False, indent=2)
+        # Chat-Datei anlegen
+        save_chat(user, nummer, [])
 
-        flash("Karte erfolgreich bestellt! 📦")
+        flash("Karte erfolgreich bestellt!")
         return redirect(url_for("meine_auftraege"))
 
     return render_template("bestellen.html")
@@ -214,9 +173,8 @@ def bestellen():
 @app.route("/meine_auftraege")
 def meine_auftraege():
     if "user" not in session:
-        flash("Bitte anmelden, um Deine Aufträge zu sehen!")
+        flash("Bitte einloggen, um deine Aufträge zu sehen!")
         return redirect(url_for("login"))
-
     user = session["user"]
     orders = load_orders().get(user, [])
     return render_template("meine_auftraege.html", orders=orders, ingame_name=user)
@@ -224,7 +182,7 @@ def meine_auftraege():
 @app.route("/meine_auftraege/delete/<int:nummer>", methods=["POST"])
 def user_delete_order(nummer):
     if "user" not in session:
-        flash("Bitte anmelden, um Aufträge zu löschen!")
+        flash("Bitte einloggen!")
         return redirect(url_for("login"))
 
     user = session["user"]
@@ -235,6 +193,7 @@ def user_delete_order(nummer):
             orders.pop(user, None)
         save_orders(orders)
 
+    # Chat löschen
     chat_path = os.path.join(CHAT_FOLDER, f"{user}_Karte_{nummer}.json")
     if os.path.exists(chat_path):
         os.remove(chat_path)
@@ -242,23 +201,24 @@ def user_delete_order(nummer):
     flash(f"Auftrag Karte_{nummer} gelöscht!")
     return redirect(url_for("meine_auftraege"))
 
-# ---------------- Admin-Bereich ----------------
+# ---------------- Admin ----------------
+ADMIN_PASS = "015569026859"
+
 @app.route("/admin", methods=["GET", "POST"])
 def admin():
     if request.method == "POST":
         pw = request.form.get("admin_pass")
-        if pw == "015569026859":  # Admin Passwort
-            orders = load_orders()
-            return render_template("admin.html", orders=orders)
-        else:
+        if pw != ADMIN_PASS:
             flash("Falsches Admin-Passwort!")
             return redirect(url_for("admin"))
+        orders = load_orders()
+        return render_template("admin.html", orders=orders)
     return render_template("admin_login.html")
 
 @app.route("/admin/delete/<ingame_name>/<int:nummer>", methods=["POST"])
 def admin_delete(ingame_name, nummer):
     pw = request.form.get("admin_pass")
-    if pw != "015569026859":
+    if pw != ADMIN_PASS:
         flash("Falsches Passwort!")
         return redirect(url_for("admin"))
 
@@ -276,37 +236,54 @@ def admin_delete(ingame_name, nummer):
     flash(f"Auftrag von {ingame_name} (Karte {nummer}) gelöscht!")
     return redirect(url_for("admin"))
 
-# ---------------- Chat & Kartenanzeige ----------------
+# ---------------- Chat pro Auftrag ----------------
 @app.route("/<ingame_name>/Karte_<int:nummer>", methods=["GET", "POST"])
 def karte_detail(ingame_name, nummer):
-    orders = load_orders()
-    user_orders = orders.get(ingame_name, [])
-    order = next((o for o in user_orders if o["nummer"] == nummer), None)
-    if not order:
-        return "Bestellung nicht gefunden", 404
+    # Nur Besitzer oder Admin darf Zugriff
+    user = session.get("user")
+    if not user or (user != ingame_name and user != "Pandapalette"):
+        return "Zugriff verweigert.", 403
 
-    # Zugriff nur für Besitzer oder Admin
-    if "user" not in session:
-        return "Zugriff verweigert. Bitte anmelden.", 403
-    if session["user"] != ingame_name and session["user"] != "Pandapalette":  # Admin
-        return "Zugriff verweigert. Nur Besitzer oder Admin können diesen Chat sehen.", 403
+    orders = load_orders()
+    order = next((o for o in orders.get(ingame_name, []) if o["nummer"] == nummer), None)
+    if not order:
+        return "Bestellung nicht gefunden.", 404
 
     if request.method == "POST":
         text = request.form.get("text")
         if text:
             messages = load_chat(ingame_name, nummer)
-            messages.append({"user": session["user"], "text": text, "time": datetime.now().isoformat()})
+            messages.append({"user": user, "text": text, "time": datetime.now().isoformat()})
             save_chat(ingame_name, nummer, messages)
         return redirect(url_for("karte_detail", ingame_name=ingame_name, nummer=nummer))
 
     messages = load_chat(ingame_name, nummer)
     return render_template("chat.html", ingame_name=ingame_name, order=order, messages=messages)
 
-# ---------------- Uploads ausliefern ----------------
+# ---------------- Uploads ----------------
 @app.route("/uploads/<path:filename>")
 def uploaded_file(filename):
     return send_from_directory(UPLOAD_FOLDER, filename)
 
+# ---------------- Bug Report ----------------
+@app.route("/bug_report", methods=["GET", "POST"])
+def bug_report():
+    if request.method == "POST":
+        user = session.get("user", "Gast")
+        text = request.form.get("text")
+        if text:
+            if not os.path.exists(BUG_FILE):
+                with open(BUG_FILE, "w", encoding="utf-8") as f:
+                    json.dump([], f)
+            with open(BUG_FILE, "r", encoding="utf-8") as f:
+                reports = json.load(f)
+            reports.append({"user": user, "text": text, "time": datetime.now().isoformat()})
+            with open(BUG_FILE, "w", encoding="utf-8") as f:
+                json.dump(reports, f, ensure_ascii=False, indent=2)
+            flash("Bug Report erfolgreich gesendet!")
+            return redirect(url_for("home"))
+    return render_template("bug_report.html")
+
 # ---------------- App starten ----------------
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, host="0.0.0.0", port=5000)
